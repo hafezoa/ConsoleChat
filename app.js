@@ -11,7 +11,6 @@ var rl = readline.createInterface(process.stdin, process.stdout);
 rl.question("Please enter a nickname: ", function(name) {
     nick = name;
     var msg = nick + " has joined the chat";
-    console_out("emitting send messae notice");
     socket.emit('send', { type: 'notice', message: msg });
     rl.prompt(true);
 });
