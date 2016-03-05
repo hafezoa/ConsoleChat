@@ -2,16 +2,18 @@ var readline = require('readline'),
 socketio = require('socket.io-client'),
 util = require('util'),
 color = require("ansi-color").set;
+var notifier = require('node-notifier');
 
 
 var nick;
-var socket = socketio.connect('http://appframework.cloudapp.net:3636');
+//var socket = socketio.connect('http://appframework.cloudapp.net:3636');
+var socket = socketio.connect('http://localhost:3636');
 var rl = readline.createInterface(process.stdin, process.stdout);
 
 rl.question("Please enter a nickname: ", function(name) {
     nick = name;
     var msg = nick + " has joined the chat";
-    socket.emit('send', { type: 'notice', message: msg });
+    socket.emit('register',{name: name});
     rl.prompt(true);
 });
 
@@ -63,7 +65,7 @@ function chat_command(cmd, arg) {
         case 'msg':
             var to = arg.match(/[a-zA-Z]+\b/)[0];
             var message = arg.substr(to.length, arg.length);
-            socket.emit('send', { type: 'tell', message: message, to: to, from: nick });
+            socket.emit('privatemessage', {message: message, to: to});
             rl.prompt(true);
             break;
 
@@ -72,11 +74,46 @@ function chat_command(cmd, arg) {
             socket.emit('send', { type: 'emote', message: emote });
             break;
 
+        case 'toast':
+            var to = arg.match(/[a-zA-Z*]+\b/)[0];
+            var message = arg.substr(to.length, arg.length);
+            socket.emit('toast', {message: message, to: to});
+            rl.prompt(true);
+            break;
+
+        case 'users':
+            socket.emit('users');
+            break;
+
         default:
             console_out("That is not a valid command.");
 
     }
 }
+
+socket.on('userlist', function(data){
+  console_out("Currently Logged in users: " + color(data,"green"));
+})
+
+socket.on('toast', function(data){
+  notifier.notify({
+    title: "Message from " + data.from,
+    message: data.message,
+    sound: true,
+    wait: true,
+    from: data.from
+  })
+})
+
+socket.on('toastread',function(data){
+  console_out(color(data.from + " read your toast.", 'cyan'));
+});
+
+socket.on('privatemessage', function(data){
+  leader = color(data.from+"->"+data.to, "red_bg+white");
+  time = color(getTime() + ": ", "cyan");
+  console_out(leader + time + data.message);
+});
 
 socket.on('message', function (data) {
     var leader;
@@ -88,12 +125,12 @@ socket.on('message', function (data) {
     else if (data.type == "notice") {
         console_out(color(data.message, 'cyan'));
     }
-    else if (data.type == "tell" && data.to == nick) {
-        leader = color(data.from+"->"+data.to, "red_bg+white");
-        time = color(getTime() + ": ", "cyan");
-        console_out(leader + time + data.message);
-    }
     else if (data.type == "emote") {
         console_out(color(data.message, "cyan_bg+white"));
     }
+});
+
+notifier.on('click', function (notifierObject, options) {
+  // Triggers if `wait: true` and user clicks notification
+  socket.emit('toastread',{toastFrom: options.from});
 });
