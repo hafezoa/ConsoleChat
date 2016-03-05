@@ -19,9 +19,11 @@ io.sockets.on('connection', function (socket) {
     });
 
     socket.on('disconnect', function(data){
-      console.log(connections[socket.id] + " has left the chat.");
+      var msg = connections[socket.id] + " has left the chat.";
+      console.log(msg);
       delete connections[connections[socket.id]];
       delete connections[socket.id];
+      io.sockets.emit('message', {type:"notice", message:msg})
     })
 
     socket.on('users', function(data){
