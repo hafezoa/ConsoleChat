@@ -8,8 +8,8 @@ var fs = require('fs');
 var bytes = require('bytes');
 var fileConfirmationMode, fileConfirmationData;
 var nick;
-//var socket = socketio.connect('http://appframework.cloudapp.net:3636');
-var socket = socketio.connect('http://localhost:3636');
+var socket = socketio.connect('http://appframework.cloudapp.net:3636');
+//var socket = socketio.connect('http://localhost:3636');
 
 var rl = readline.createInterface(process.stdin, process.stdout);
 
