@@ -28,6 +28,12 @@ io.sockets.on('connection', function (socket) {
       }
     })
 
+    socket.on('fileDownload', function(data){
+      if (connections[data.to]){
+        io.sockets.connected[connections[data.to]].emit('fileDownload', data);
+      }
+    })
+
     // Broadcast a user's message to everyone else in the room
     socket.on('send', function (data) {
         io.sockets.emit('message', data);

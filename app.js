@@ -5,10 +5,11 @@ color = require("ansi-color").set;
 var notifier = require('node-notifier');
 var path = require('path');
 var fs = require('fs');
+var bytes = require('bytes');
 var fileConfirmationMode, fileConfirmationData;
 var nick;
-var socket = socketio.connect('http://appframework.cloudapp.net:3636');
-//var socket = socketio.connect('http://localhost:3636');
+//var socket = socketio.connect('http://appframework.cloudapp.net:3636');
+var socket = socketio.connect('http://localhost:3636');
 
 var rl = readline.createInterface(process.stdin, process.stdout);
 
@@ -104,7 +105,10 @@ function chat_command(cmd, arg) {
         case 'file':
             var to = arg.match(/[a-zA-Z]+\b/)[0];
             var filepath = arg.substr(to.length+1, arg.length);
-            var data = {path: filepath, name:path.basename(filepath), to:to};
+            var fileSize, fileSizeString;
+            fileSize = fs.statSync(filepath)["size"];
+            fileSizeString = bytes(fileSize);
+            var data = {path: filepath, name:path.basename(filepath), to:to, size: fileSizeString};
             console_out(color("Sending file download request to " + data.to, "cyan"));
             socket.emit('fileConfirmPrompt', data);
             rl.prompt(true);
@@ -121,14 +125,20 @@ socket.on('userlist', function(data){
 })
 
 socket.on('fileConfirmPrompt', function(data){
-  console_out(color(data.from + ' is sending you a file ' + data.name + '... Accept (Y/n)?',"yellow"));
+  console_out(color(data.from + ' is sending you a file ' + data.name + '(size: ' + data.size + ')... Accept (Y/n)?',"yellow"));
   fileConfirmationData = data;
   fileConfirmationMode = true;
 })
 
 socket.on('fileConfirmResponse', function(data){
   if (data.response){
-    console_out(color(data.to + ' has accepted to download the file. Sending... [Actual send implementation is not yet completed.]', 'green'));
+    console_out(color(data.to + ' has accepted to download the file. Sending...', 'green'));
+    fs.readFile(data.path, (err,fileData)=>{
+      if(err) throw err;
+      data.fileData = fileData;
+      socket.emit('fileDownload', data);
+      console_out(color("File sent to " + data.to + " successfully."));
+    });
   }else{
     console_out(color(data.to + ' has rejected the file send request. Aborted sending file.', 'red'));
   }
@@ -152,6 +162,13 @@ socket.on('privatemessage', function(data){
   leader = color(data.from+"->"+data.to, "red_bg+white");
   time = color(getTime() + ": ", "cyan");
   console_out(leader + time + data.message);
+});
+
+socket.on('fileDownload', function(data){
+  fs.writeFile(data.name, data.fileData,(err)=>{
+    if(err) throw err;
+    console_out("The file " + data.name + " was saved successfully...");
+  })
 });
 
 socket.on('message', function (data) {
