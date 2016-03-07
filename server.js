@@ -1,5 +1,6 @@
 var socketio = require('socket.io');
 var connections = {};
+var users = [];
 // Listen on port 3636
 var io = socketio.listen(3636);
 console.log('started listening on port 3636...');
@@ -9,9 +10,23 @@ io.sockets.on('connection', function (socket) {
       var msg = data.name + " has joined the chat.";
       connections[socket.id] = data.name;
       connections[data.name] = socket.id;
+      users.push(data.name);
       console.log(msg);
       io.sockets.emit('message', {type:"notice", message: msg});
     });
+
+    socket.on('fileConfirmPrompt', function(data){
+      data.from = connections[socket.id];
+      if (connections[data.to]){
+        io.sockets.connected[connections[data.to]].emit('fileConfirmPrompt', data);
+      }
+    })
+
+    socket.on('fileConfirmResponse', function(data){
+      if (connections[data.from]){
+        io.sockets.connected[connections[data.from]].emit('fileConfirmResponse', data);
+      }
+    })
 
     // Broadcast a user's message to everyone else in the room
     socket.on('send', function (data) {
@@ -21,15 +36,17 @@ io.sockets.on('connection', function (socket) {
     socket.on('disconnect', function(data){
       var msg = connections[socket.id] + " has left the chat.";
       console.log(msg);
-      delete connections[connections[socket.id]];
+      var name = connections[socket.id];
+      delete connections[name];
       delete connections[socket.id];
+      users.splice(users.indexOf(name),1);
       io.sockets.emit('message', {type:"notice", message:msg})
     })
 
     socket.on('users', function(data){
       var userlist = "";
-      Object.keys(connections).forEach(function(item){
-        userlist += connections[item] + ", ";
+      users.forEach(function(item){
+        userlist += item + ", ";
       })
       userlist = userlist.substr(0,userlist.length - 2);
       io.sockets.connected[socket.id].emit('userlist', userlist);
